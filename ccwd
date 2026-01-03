@@ -1,0 +1,6 @@
+#!/bin/bash
+
+pwd | xclip -selection clipboard
+
+
+pwd | xclip -selection primary
