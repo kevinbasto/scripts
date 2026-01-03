@@ -38,4 +38,4 @@ git add .
 git commit -m "[$TYPE]: $MESSAGE"
 git push
 
-echo "✅ Commit created: $TYPE: $MESSAGE"
+echo "✅ Commit created: [$TYPE]: $MESSAGE"

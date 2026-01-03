@@ -1,0 +1,37 @@
+#!/bin/bash
+
+if [ $# -eq 0 ]; then
+    echo "Error: command usage:"
+    echo "brancher [ -f | -h | -r] <branch name>"
+    exit 1
+fi
+
+case "$1" in
+    -f)
+        TYPE="FEAT"
+        ;;
+    -h)
+        TYPE="HOTFIX"
+        ;;
+    -r)
+        TYPE="release"
+        ;;
+    -*)
+        echo "Error: flag not recognized"
+        exit 1
+        ;;
+esac
+
+shift
+
+if [ $# -eq 0 ]; then
+    echo "Error: Branch name is required"
+    exit 1
+fi
+
+BRANCH="$*"
+
+git checkout -b "$TYPE/$BRANCH"
+git add .
+git commit -m "[$TYPE]: branch created"
+git push origin "$TYPE/$BRANCH" --set-upstream

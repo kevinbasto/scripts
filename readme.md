@@ -4,7 +4,7 @@ A collection of my personal working scripts, with documentation explaining what 
 
 ## 📂 Structure
 
-- `scripts/` — Contains all executable scripts.
+- `src/` — Contains all executable scripts.
 - `docs/` — Markdown documentation explaining each script.
 - `README.md` — Overview of the repository.
 
@@ -15,6 +15,6 @@ A collection of my personal working scripts, with documentation explaining what 
 
 ## 📝 Usage
 
-1. Navigate to the `scripts/` folder:
+1. Navigate to the `src/` folder:
    ```bash
    cd scripts/
