@@ -1,0 +1,41 @@
+#!/bin/bash
+
+if [ $# -eq 0 ]; then
+	echo "Usage: commiter [-f | --fix | -t] <message>"
+	exit 1
+fi
+
+#Processing the flag
+case "$1" in
+	-f)
+		TYPE="feat"
+		;;
+	--fix)
+		TYPE="fix"
+		;;
+	-t)
+		TYPE="typo"
+		;;
+	*)
+		echo "Error: Invalid flag. use -f, --fix, or -t"
+		exit 1
+		;;
+esac
+
+shift # removing of the flag
+
+# verification of the message
+if [ $# -eq 0 ]; then
+	echo "Error: Commit message is required"
+	exit 1
+fi
+
+
+MESSAGE="$*"
+
+# commiting 
+git add .
+git commit -m "[$TYPE]: $MESSAGE"
+git push
+
+echo "✅ Commit created: $TYPE: $MESSAGE"
