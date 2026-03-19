@@ -1,0 +1,1 @@
+sshpass -f ./hostinger_pass.txt ssh $(cat ~/hostinger)
