@@ -1,0 +1,51 @@
+#!/bin/bash
+
+KEYNAME="id_rsa"
+COMMENT=""
+OUTPUT_DIR="$HOME/.ssh"
+
+usage() {
+    echo "Usage: ssh-keygen-gen [-n <name>] [-c <comment>]"
+    echo ""
+    echo "Flags:"
+    echo "  -n  Key file name (default: id_rsa)"
+    echo "  -c  Comment for the key (e.g. user@host)"
+    exit 1
+}
+
+while getopts "n:c:h" opt; do
+    case "$opt" in
+        n) KEYNAME="$OPTARG" ;;
+        c) COMMENT="$OPTARG" ;;
+        h) usage ;;
+        *) usage ;;
+    esac
+done
+
+KEYPATH="${OUTPUT_DIR}/${KEYNAME}"
+
+if [ ! -d "$OUTPUT_DIR" ]; then
+    mkdir -p "$OUTPUT_DIR"
+    chmod 700 "$OUTPUT_DIR"
+fi
+
+if [ -f "$KEYPATH" ]; then
+    echo "Error: key '$KEYPATH' already exists. Use -n to choose a different name."
+    exit 1
+fi
+
+CMD="ssh-keygen -t rsa -b 4096 -f $KEYPATH"
+
+if [ -n "$COMMENT" ]; then
+    CMD="$CMD -C \"$COMMENT\""
+fi
+
+echo "Generating RSA 4096 key at $KEYPATH..."
+eval $CMD
+
+echo ""
+echo "Key generated:"
+echo "  Private: $KEYPATH"
+echo "  Public:  ${KEYPATH}.pub"
+echo ""
+cat "${KEYPATH}.pub"
