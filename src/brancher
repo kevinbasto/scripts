@@ -3,6 +3,7 @@
 if [ $# -eq 0 ]; then
     echo "Error: command usage:"
     echo "brancher [ -f | -h | -r | -d ] <branch name>"
+    exit 1
 fi
 
 case "$1" in
@@ -13,13 +14,14 @@ case "$1" in
         TYPE="HOTFIX"
         ;;
     -r)
-        TYPE="RELEASE"
+        TYPE="release"
         ;;
     -d)
-        TYPE="DEVELOP"
+        TYPE="develop"
         ;;
     -*)
-        echo "ERROR: flag not recognized"
+        echo "Error: flag not recognized"
+        exit 1
         ;;
 esac
 
