@@ -1,0 +1,86 @@
+#!/bin/bash
+
+# Valores por defecto
+STATUS="private"
+DESTINY=""
+NAME=""
+
+# Ayuda del script
+usage() {
+    echo "Error: command usage:"
+    echo "creater -n <repo_name> [ -s public|private ] [ -d destiny ]"
+    exit 1
+}
+
+# Si no hay argumentos, mostrar uso
+if [ $# -eq 0 ]; then
+    usage
+fi
+
+# Parsear argumentos con getopts
+while getopts "n:s:d:h" opt; do
+    case "$opt" in
+        n) NAME="$OPTARG" ;;
+        s) STATUS="$OPTARG" ;;
+        d) DESTINY="$OPTARG" ;;
+        h|*) usage ;;
+    esac
+done
+
+# Validar que el nombre sea obligatorio
+if [ -z "$NAME" ]; then
+    echo "Error: Repository name (-n) is required."
+    exit 1
+fi
+
+# Validar que el status sea correcto (public o private)
+if [ "$STATUS" != "public" ] && [ "$STATUS" != "private" ]; then
+    echo "Error: Status (-s) must be 'public' or 'private'. Default is private."
+    exit 1
+fi
+
+# Configurar el target final (si hay destino, se usa 'destino/nombre', si no, solo 'nombre')
+if [ -n "$DESTINY" ]; then
+    GH_TARGET="$DESTINY/$NAME"
+else
+    GH_TARGET="$NAME"
+fi
+
+echo "🚀 Creando repositorio en GitHub: $GH_TARGET ($STATUS)..."
+
+# 1. Crear el repositorio en GitHub usando la CLI
+# --confirm salta confirmaciones interactivas si ya existe algo local
+gh repo create "$GH_TARGET" --"$STATUS" --confirm
+
+# Verificar si gh falló (por ejemplo, si no estás logueado o el destino no existe)
+if [ $? -ne 0 ]; then
+    echo "Error: Failed to create repository on GitHub."
+    exit 1
+fi
+
+# 2. Inicializar repositorio local si no está inicializado
+if [ ! -d ".git" ]; then
+    echo "📦 Inicializando repositorio local..."
+    git init -b main
+fi
+
+# 3. Vincular el remoto (si ya existía, gh a veces lo vincula, por si acaso aseguramos)
+REMOTE_URL="https://github.com/${GH_TARGET}.git"
+if git remote get-url origin >/dev/null 2>&1; then
+    git remote set-url origin "$REMOTE_URL"
+else
+    git remote add origin "$REMOTE_URL"
+fi
+
+# 4. Primer commit y subida si hay archivos locales
+if [ -n "$(git status --porcelain)" ] || [ -f "README.md" ] || [ $(git log 2>/dev/null | wc -l) -eq 0 ]; then
+    echo "💾 Creando commit inicial..."
+    git add .
+    # Si no hay archivos para commitear, evita que el script rompa
+    git commit -m "[INIT]: repository created" --allow-empty
+    
+    echo "📤 Subiendo a main..."
+    git push -u origin main
+fi
+
+echo "✅ ¡Todo listo! Repositorio configurado y sincronizado."
