@@ -39,6 +39,17 @@ if [ "$STATUS" != "public" ] && [ "$STATUS" != "private" ]; then
     exit 1
 fi
 
+# Chequeo básico de que gh existe y está logueado
+if ! command -v gh >/dev/null 2>&1; then
+    echo "Error: gh CLI no está instalado."
+    exit 1
+fi
+
+if ! gh auth status >/dev/null 2>&1; then
+    echo "Error: no estás autenticado en gh. Corre 'gh auth login'."
+    exit 1
+fi
+
 # Configurar el target final (si hay destino, se usa 'destino/nombre', si no, solo 'nombre')
 if [ -n "$DESTINY" ]; then
     GH_TARGET="$DESTINY/$NAME"
@@ -49,22 +60,32 @@ fi
 echo "🚀 Creando repositorio en GitHub: $GH_TARGET ($STATUS)..."
 
 # 1. Crear el repositorio en GitHub usando la CLI
-# --confirm salta confirmaciones interactivas si ya existe algo local
-gh repo create "$GH_TARGET" --"$STATUS" --confirm
+gh repo create "$GH_TARGET" --"$STATUS" -y
 
-# Verificar si gh falló (por ejemplo, si no estás logueado o el destino no existe)
 if [ $? -ne 0 ]; then
     echo "Error: Failed to create repository on GitHub."
     exit 1
 fi
 
-# 2. Inicializar repositorio local si no está inicializado
-if [ ! -d ".git" ]; then
+# 2. Detectar si ya estamos dentro de un repo git (buscando hacia arriba, como git realmente lo hace)
+#    En vez de solo mirar '.git' en el directorio actual (lo que falla en subcarpetas)
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    REPO_ROOT="$(git rev-parse --show-toplevel)"
+    echo "📦 Ya existe un repositorio git (detectado en $REPO_ROOT)"
+    cd "$REPO_ROOT" || { echo "Error: no se pudo entrar a $REPO_ROOT"; exit 1; }
+else
     echo "📦 Inicializando repositorio local..."
     git init -b main
 fi
 
-# 3. Vincular el remoto (si ya existía, gh a veces lo vincula, por si acaso aseguramos)
+# 3. Detectar la rama actual en vez de asumir 'main'
+CURRENT_BRANCH="$(git symbolic-ref --short HEAD 2>/dev/null)"
+if [ -z "$CURRENT_BRANCH" ]; then
+    # repo recién inicializado sin commits todavía, HEAD no apunta a nada resolviable
+    CURRENT_BRANCH="main"
+fi
+
+# 4. Vincular el remoto (si ya existía, gh a veces lo vincula, por si acaso aseguramos)
 REMOTE_URL="https://github.com/${GH_TARGET}.git"
 if git remote get-url origin >/dev/null 2>&1; then
     git remote set-url origin "$REMOTE_URL"
@@ -72,15 +93,26 @@ else
     git remote add origin "$REMOTE_URL"
 fi
 
-# 4. Primer commit y subida si hay archivos locales
-if [ -n "$(git status --porcelain)" ] || [ -f "README.md" ] || [ $(git log 2>/dev/null | wc -l) -eq 0 ]; then
-    echo "💾 Creando commit inicial..."
+# 5. Commitear solo si hace falta (cambios pendientes o cero commits todavía)
+HAS_COMMITS=true
+git log -1 >/dev/null 2>&1 || HAS_COMMITS=false
+
+if [ -n "$(git status --porcelain)" ] || [ "$HAS_COMMITS" = false ]; then
+    echo "💾 Creando commit..."
     git add .
-    # Si no hay archivos para commitear, evita que el script rompa
     git commit -m "[INIT]: repository created" --allow-empty
-    
-    echo "📤 Subiendo a main..."
-    git push -u origin main
+else
+    echo "ℹ️ No hay cambios nuevos que commitear."
+fi
+
+# 6. El push SIEMPRE se intenta, independientemente de si hubo commit nuevo,
+#    porque el remoto puede ser nuevo o distinto y el historial local debe llegar a él.
+echo "📤 Subiendo a $CURRENT_BRANCH..."
+git push -u origin "$CURRENT_BRANCH"
+
+if [ $? -ne 0 ]; then
+    echo "Error: Falló el push a origin/$CURRENT_BRANCH."
+    exit 1
 fi
 
 echo "✅ ¡Todo listo! Repositorio configurado y sincronizado."
