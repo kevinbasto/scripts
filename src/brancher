@@ -2,8 +2,7 @@
 
 if [ $# -eq 0 ]; then
     echo "Error: command usage:"
-    echo "brancher [ -f | -h | -r] <branch name>"
-    exit 1
+    echo "brancher [ -f | -h | -r | -d ] <branch name>"
 fi
 
 case "$1" in
@@ -14,24 +13,32 @@ case "$1" in
         TYPE="HOTFIX"
         ;;
     -r)
-        TYPE="release"
+        TYPE="RELEASE"
+        ;;
+    -d)
+        TYPE="DEVELOP"
         ;;
     -*)
-        echo "Error: flag not recognized"
-        exit 1
+        echo "ERROR: flag not recognized"
         ;;
 esac
 
 shift
 
-if [ $# -eq 0 ]; then
-    echo "Error: Branch name is required"
-    exit 1
+# Si es develop, ignoramos el resto de los argumentos y armamos el nombre directo
+if [ "$TYPE" = "develop" ]; then
+    FULL_BRANCH_NAME="develop"
+else
+    # Para los demás flags, seguimos exigiendo el nombre de la rama
+    if [ $# -eq 0 ]; then
+        echo "Error: Branch name is required"
+        exit 1
+    fi
+    BRANCH="$*"
+    FULL_BRANCH_NAME="$TYPE/$BRANCH"
 fi
 
-BRANCH="$*"
-
-git checkout -b "$TYPE/$BRANCH"
+git checkout -b "$FULL_BRANCH_NAME"
 git add .
 git commit -m "[$TYPE]: branch created"
-git push origin "$TYPE/$BRANCH" --set-upstream
+git push origin "$FULL_BRANCH_NAME" --set-upstream
