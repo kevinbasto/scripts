@@ -5,19 +5,16 @@ STATUS="private"
 DESTINY=""
 NAME=""
 
-# Ayuda del script
 usage() {
     echo "Error: command usage:"
     echo "creater -n <repo_name> [ -s public|private ] [ -d destiny ]"
     exit 1
 }
 
-# Si no hay argumentos, mostrar uso
 if [ $# -eq 0 ]; then
     usage
 fi
 
-# Parsear argumentos con getopts
 while getopts "n:s:d:h" opt; do
     case "$opt" in
         n) NAME="$OPTARG" ;;
@@ -27,19 +24,16 @@ while getopts "n:s:d:h" opt; do
     esac
 done
 
-# Validar que el nombre sea obligatorio
 if [ -z "$NAME" ]; then
     echo "Error: Repository name (-n) is required."
     exit 1
 fi
 
-# Validar que el status sea correcto (public o private)
 if [ "$STATUS" != "public" ] && [ "$STATUS" != "private" ]; then
     echo "Error: Status (-s) must be 'public' or 'private'. Default is private."
     exit 1
 fi
 
-# Chequeo básico de que gh existe y está logueado
 if ! command -v gh >/dev/null 2>&1; then
     echo "Error: gh CLI no está instalado."
     exit 1
@@ -50,7 +44,6 @@ if ! gh auth status >/dev/null 2>&1; then
     exit 1
 fi
 
-# Configurar el target final (si hay destino, se usa 'destino/nombre', si no, solo 'nombre')
 if [ -n "$DESTINY" ]; then
     GH_TARGET="$DESTINY/$NAME"
 else
@@ -67,8 +60,7 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# 2. Detectar si ya estamos dentro de un repo git (buscando hacia arriba, como git realmente lo hace)
-#    En vez de solo mirar '.git' en el directorio actual (lo que falla en subcarpetas)
+# 2. Detectar si ya estamos dentro de un repo git (buscando hacia arriba)
 if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     REPO_ROOT="$(git rev-parse --show-toplevel)"
     echo "📦 Ya existe un repositorio git (detectado en $REPO_ROOT)"
@@ -81,12 +73,20 @@ fi
 # 3. Detectar la rama actual en vez de asumir 'main'
 CURRENT_BRANCH="$(git symbolic-ref --short HEAD 2>/dev/null)"
 if [ -z "$CURRENT_BRANCH" ]; then
-    # repo recién inicializado sin commits todavía, HEAD no apunta a nada resolviable
     CURRENT_BRANCH="main"
 fi
 
-# 4. Vincular el remoto (si ya existía, gh a veces lo vincula, por si acaso aseguramos)
-REMOTE_URL="https://github.com/${GH_TARGET}.git"
+# 4. Obtener el nombre completo real (owner/repo) directamente de GitHub,
+#    porque si no se pasó -d, gh resuelve el owner automáticamente (tu usuario autenticado)
+#    y GH_TARGET se queda sin ese owner.
+FULL_REPO="$(gh repo view "$GH_TARGET" --json nameWithOwner -q .nameWithOwner 2>/dev/null)"
+
+if [ -z "$FULL_REPO" ]; then
+    echo "Error: no se pudo resolver el nombre completo del repositorio en GitHub."
+    exit 1
+fi
+
+REMOTE_URL="https://github.com/${FULL_REPO}.git"
 if git remote get-url origin >/dev/null 2>&1; then
     git remote set-url origin "$REMOTE_URL"
 else
@@ -105,8 +105,7 @@ else
     echo "ℹ️ No hay cambios nuevos que commitear."
 fi
 
-# 6. El push SIEMPRE se intenta, independientemente de si hubo commit nuevo,
-#    porque el remoto puede ser nuevo o distinto y el historial local debe llegar a él.
+# 6. El push SIEMPRE se intenta
 echo "📤 Subiendo a $CURRENT_BRANCH..."
 git push -u origin "$CURRENT_BRANCH"
 
@@ -115,4 +114,4 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-echo "✅ ¡Todo listo! Repositorio configurado y sincronizado."
+echo "✅ ¡Todo listo! Repositorio configurado y sincronizado ($FULL_REPO)."
